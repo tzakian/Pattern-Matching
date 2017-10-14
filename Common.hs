@@ -75,15 +75,15 @@ isCompleteDataSig env present constr =
       if Map.null left then []
       else [PatObj (Constr (fst (Map.findMin left))) (Just [PatWild])]
 
-sigmaComplete :: Env -> [Pat] -> [Pat]
+sigmaComplete :: Env -> [Pat] -> ([Pat], [Pat])
 sigmaComplete env sigma =
   let present = filter (not . isWildcard) sigma in
   case present of
-    [] -> [PatWild]
+    [] -> (present, [PatWild])
     cons:_ -> case cons of
-      PatLit l -> isCompleteLiteral env present l
-      PatTuple _ -> []
-      PatObj (Constr str) _ -> isCompleteDataSig env present str
+      PatLit l -> (present, isCompleteLiteral env present l)
+      PatTuple _ -> (present, [])
+      PatObj (Constr str) _ -> (present, isCompleteDataSig env present str)
 
 t = Match "f" [PatLit (B True), PatLit (B False)]
 tt = Match "f" [PatWild]

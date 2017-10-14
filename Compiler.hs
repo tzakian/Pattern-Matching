@@ -67,7 +67,7 @@ compile env occs@(o:rest) mat@((firstRow, fact):_)
     if null sigComplete then
       Switch o aks Nothing
     else
-      let dmat = compile env rest (defaultMatrixWAct mat) in
+      let dmat = compile env occs (defaultMatrixWAct mat) in
       Switch o aks (Just dmat)
   where
    compileSubmatrix constr =
