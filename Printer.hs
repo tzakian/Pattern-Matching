@@ -2,7 +2,6 @@ module Printer where
 
 import Types
 
-
 import Text.PrettyPrint
 import Text.PrettyPrint.HughesPJClass
 
@@ -16,7 +15,7 @@ instance Pretty Expr where
  pPrint (Switch o branches (Just def)) =
    let switch = cat [text "switch ", pPrint o, lbrace] in
    let brnchs = map (\(o, a) -> nest 2 (hcat [text "case ", pPrint o, text ": -> ", pPrint a])) branches in
-   vcat $ switch : brnchs ++ [nest 2 (hcat [text "_", text " -> ", pPrint def]), rbrace]
+   vcat $ switch : brnchs ++ [nest 2 (hcat [text "case _: -> ", pPrint def]), rbrace]
 
 instance Pretty Obj where
   pPrint (Obj s) = text s

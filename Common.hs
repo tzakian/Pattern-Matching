@@ -10,19 +10,19 @@ removeDuplicates pats = snd $
                     then (seen, acc)
                     else (seen ++ [canonicalize x], x:acc)) ([],[]) pats
   where
-    canonicalize (PatTuple _) = PatTuple []
-    canonicalize (PatObj s Nothing) = (PatObj s Nothing)
+    canonicalize (PatTuple _)        = PatTuple []
+    canonicalize (PatObj s Nothing)  = (PatObj s Nothing)
     canonicalize (PatObj s (Just _)) = (PatObj s (Just []))
-    canonicalize x = x
+    canonicalize x                   = x
 
 isWildcard :: Pat -> Bool
 isWildcard PatWild = True
-isWildcard _ = False
+isWildcard _       = False
 
 arityOfPat :: Pat -> Int
 arityOfPat pat = case pat of
   PatLit _ -> 0
-  PatWild -> 0
+  PatWild  -> 0
   PatTuple p -> length p
   PatObj (Constr str) (Just p) -> length p
   PatObj (Constr str) Nothing -> 0
@@ -50,7 +50,7 @@ defaultMatrix mat = concatMap defPat mat
   where
     defPat :: PatVec -> [PatVec]
     defPat (p:ps) | isWildcard p = [ps]
-    defPat _ = []
+    defPat _                     = []
 
 isCompleteLiteral :: Env -> [Pat] -> Lit -> [Pat]
 isCompleteLiteral env present lit =
@@ -61,7 +61,7 @@ isCompleteLiteral env present lit =
     B b ->
       let hasOther p = case p of
             PatLit (B b') -> b /= b'
-            _ -> False
+            _             -> False
       in if any hasOther present then []
           else [PatLit (B (not b))]
 
@@ -71,7 +71,7 @@ isCompleteDataSig env present constr =
     Nothing -> error ("Unable to find constructor " ++ constr)
     Just rest ->
       let remove acc c _f = Map.delete c acc in
-      let left = (Map.foldlWithKey remove Map.empty rest :: Map.Map String Int) in
+      let left            = (Map.foldlWithKey remove Map.empty rest :: Map.Map String Int) in
       if Map.null left then []
       else [PatObj (Constr (fst (Map.findMin left))) (Just [PatWild])]
 
@@ -81,8 +81,8 @@ sigmaComplete env sigma =
   case present of
     [] -> (present, [PatWild])
     cons:_ -> case cons of
-      PatLit l -> (present, isCompleteLiteral env present l)
-      PatTuple _ -> (present, [])
+      PatLit l              -> (present, isCompleteLiteral env present l)
+      PatTuple _            -> (present, [])
       PatObj (Constr str) _ -> (present, isCompleteDataSig env present str)
 
 t = Match "f" [PatLit (B True), PatLit (B False)]
@@ -94,4 +94,7 @@ e2 = Map.fromList [("Nil", e1), ("Cons", e1)]
 t4 = Match "f" [(PatObj (Constr "Nil") Nothing), (PatObj (Constr "Cons") (Just [PatWild, PatWild]))]
 t5 = Match "f" [(PatObj (Constr "Nil") Nothing), (PatObj (Constr "Cons") (Just [PatLit (I 1), PatWild]))]
 
-t6 = Match "f" [(PatObj (Constr "Nil") Nothing), (PatObj (Constr "Cons") (Just [PatLit (I 1), PatWild])), PatWild]
+p5 = [(PatObj (Constr "Nil") Nothing), (PatObj (Constr "Cons") (Just [PatLit (I 1), PatWild])), PatWild]
+p6 = [(PatObj (Constr "Nil") Nothing), (PatObj (Constr "Cons") (Just p5)), PatWild]
+t6 = Match "f" p5
+t7 = Match "f" p6
