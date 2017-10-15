@@ -10,14 +10,13 @@ instance Pretty Expr where
  pPrint (Leaf i) = pPrint i
  pPrint Fail = text "fail"
  pPrint (Switch o branches Nothing) =
-  vcat $ (cat [text "switch ", pPrint o, text " {"]):
-    (map (\(o, a) -> nest 2 (cat [pPrint o, text " -> ", pPrint a])) branches) ++
-    [text "}"]
+   let switch = cat [text "switch ", pPrint o, lbrace] in
+   let brnchs = map (\(o, a) -> nest 2 (hcat [text "case ", pPrint o, text ": -> ", pPrint a])) branches in
+   vcat $ switch : brnchs ++ [rbrace]
  pPrint (Switch o branches (Just def)) =
-  vcat $ (cat [text "switch ", pPrint o, text " {"]):
-    (map (\(o, a) -> nest 2 (cat [pPrint o, text " -> ", pPrint a])) branches)
-    ++ [(cat [text "_", text " -> ", pPrint def])]
-    ++ [text "}"]
+   let switch = cat [text "switch ", pPrint o, lbrace] in
+   let brnchs = map (\(o, a) -> nest 2 (hcat [text "case ", pPrint o, text ": -> ", pPrint a])) branches in
+   vcat $ switch : brnchs ++ [nest 2 (hcat [text "_", text " -> ", pPrint def]), rbrace]
 
 instance Pretty Obj where
   pPrint (Obj s) = text s
