@@ -19,6 +19,16 @@ isWildcard :: Pat -> Bool
 isWildcard PatWild = True
 isWildcard _       = False
 
+fillConstr :: Pat -> [Pat] -> Pat
+fillConstr p pats
+  | arityOfPat p == 0 = p
+  | otherwise =
+    let n = arityOfPat p in
+    case p of
+      PatTuple _ -> PatTuple $ take n pats
+      PatObj c (Just _) -> PatObj c (Just $ take n pats)
+      _ -> p
+
 arityOfPat :: Pat -> Int
 arityOfPat pat = case pat of
   PatLit _ -> 0
@@ -91,10 +101,14 @@ tt = Match "f" [PatWild]
 e1 :: Map.Map String Int
 e1 = Map.fromList [("Nil", 0), ("Cons", 2)]
 e2 = Map.fromList [("Nil", e1), ("Cons", e1)]
+t3 = Match "f" [(PatObj (Constr "Nil") Nothing)]
 t4 = Match "f" [(PatObj (Constr "Nil") Nothing), (PatObj (Constr "Cons") (Just [PatWild, PatWild]))]
 t5 = Match "f" [(PatObj (Constr "Nil") Nothing), (PatObj (Constr "Cons") (Just [PatLit (I 1), PatWild]))]
 
 p5 = [(PatObj (Constr "Nil") Nothing), (PatObj (Constr "Cons") (Just [PatLit (I 1), PatWild])), PatWild]
-p6 = [(PatObj (Constr "Nil") Nothing), (PatObj (Constr "Cons") (Just p5)), PatWild]
+p5' = [(PatObj (Constr "Nil") Nothing), (PatObj (Constr "Cons") (Just [PatLit (I 1), PatWild]))]
+p6 = [(PatObj (Constr "Nil") Nothing), (PatObj (Constr "Cons") (Just p5'))]
+p6' = [(PatObj (Constr "Nil") Nothing), (PatObj (Constr "Cons") (Just p5')), PatWild]
 t6 = Match "f" p5
-t7 = Match "f" p6
+t7nonex = Match "f" p6
+t7ex = Match "f" p6'

@@ -2,6 +2,7 @@ module Printer where
 
 import Types
 
+import Data.List
 import Text.PrettyPrint
 import Text.PrettyPrint.HughesPJClass
 
@@ -30,3 +31,20 @@ instance Pretty Lit where
   pPrint (I i) = pPrint i
   pPrint (C c) = pPrint c
   pPrint (B b) = pPrint b
+
+instance Pretty Pat where
+  pPrint PatWild = text "_"
+  pPrint (PatLit l) = pPrint l
+  pPrint (PatObj (Constr s) Nothing) = hcat [text s, text "()"]
+  pPrint (PatObj (Constr s) (Just pats)) =
+    let ppats = map pPrint pats in
+    hcat $ text s : text "(" : intersperse (text ", ") ppats ++ [text ")"]
+  pPrint (PatTuple pats) =
+    let ppats = map pPrint pats in
+    hcat $ text "(" : intersperse (text ", ") ppats ++ [text ")"]
+
+instance Pretty Match where
+  pPrint (Match s pats) =
+    let match = hcat [text "match ", text s, lbrace] in
+    let brnchs = map (\pat -> nest 2 (hcat [pPrint pat, text " -> ..."])) pats in
+   vcat $ match : brnchs ++ [rbrace]
