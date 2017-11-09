@@ -5,6 +5,7 @@ import Types
 import Data.Maybe
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import Debug.Trace
 
 data Trie a = Trie { children :: Map.Map a (Trie a) }
   deriving (Show)
@@ -23,7 +24,7 @@ expandPat env pt pat =
 arityOfPatToken :: Env -> PatToken -> Int
 arityOfPatToken env pat = case Map.lookup pat env of
   Nothing -> error $ "Unable to find constructor: " ++ show pat
-  Just kids -> kids
+  Just kids -> fromJust $ Map.lookup pat kids
 
 generateWildcards :: Int -> Pattern -> Pattern
 generateWildcards 0 continuation = continuation
@@ -37,14 +38,23 @@ isCompleteLevel env children =
     -- Now grab an example elem
     let (exampleElem, _) = Map.findMin nonWildcards
         -- Grab the constructors that we expect
-        sigmaSize = fromJust (Map.lookup exampleElem env)
+        sigmaSize = Map.size $ fromJust (Map.lookup exampleElem env)
         -- Grab the constructors that we _have_
         constrSize = Map.size nonWildcards in
     sigmaSize == constrSize
 
 -- | Given a pattern @p, determine if that pattern is in the trie
 useful :: Env -> Pattern -> Trie PatToken -> (Trie PatToken, Bool)
-useful env (Pat p Nothing) t = (t, isEnd t)
+useful env (Pat PTWild Nothing) (Trie t) = 
+  case isCompleteLevel env t of
+    True -> (Trie t, False)
+    False -> case Map.lookup PTWild t of
+                  Nothing -> (Trie (Map.insert PTWild emptyTrie t), True)
+                  Just l -> (Trie t, False)
+useful env (Pat p Nothing) (Trie t) = 
+  case Map.lookup p t of
+    Nothing -> (Trie (Map.insert p emptyTrie t), True)
+    Just l -> (Trie t, False)
 useful env (Pat p (Just rest)) (Trie children) =
   case p of
     PTConstr str ->
@@ -75,20 +85,29 @@ useful env (Pat p (Just rest)) (Trie children) =
           case Map.size wildcard of
             0 -> 
               let (trie, b) = useful env rest emptyTrie in
-              (Trie (Map.insert p trie children), True)
+              (Trie (Map.insert p trie children), b)
             _ -> let (trie, b) = useful env rest (snd $ Map.findMin wildcard) in
                  (Trie (Map.insert p trie children), b)
 
-exhaustive :: Env -> Match -> Bool
+exhaustive :: Env -> Match -> (Trie PatToken, Bool)
 exhaustive env (Match str ps) =
   let check trie pats = case pats of
-        [] ->
-          let (_, b) = useful env patwild trie in
-          if b then False
-          else True
+        [] -> 
+          let (t, b) = useful env patwild trie in
+          if b then (t, False)
+          else (t,True)
         (p:ps) ->
           let pp = convertPat p Nothing in
           let (trie', b) = useful env pp trie in
           if b then check trie' ps
-          else error ("Dead pattern found " ++ show p)
+          else trace (show trie') $
+          error ("Dead pattern found " ++ show p)
   in check emptyTrie ps
+
+printTrie :: Trie PatToken -> IO ()
+printTrie (Trie t) =
+  let tt = Map.toList t in
+  mapM_ (\(p, n) -> do { putStrLn (show p); printTrie n}) tt
+
+
+

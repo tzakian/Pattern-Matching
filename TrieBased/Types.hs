@@ -8,7 +8,7 @@ data PatToken = PTWild | PTConstr String
 data Pattern = Pat PatToken (Maybe Pattern)
   deriving (Show, Eq, Ord)
 
-type Env = Map.Map PatToken Int
+type Env = Map.Map PatToken (Map.Map PatToken Int)
 
 patwild :: Pattern
 patwild = Pat PTWild Nothing
@@ -60,8 +60,11 @@ convertPat (PatObj c (Just pats)) k =
 ---------------------------------------------------------------------------
 env1 :: Map.Map PatToken Int
 env1 = Map.fromList [(PTConstr "True", 0), (PTConstr "False", 0)]
+env2 = Map.fromList [(PTConstr "True", env1), (PTConstr "False", env1)]
 t = Match "f" [PatLit (B True), PatLit (B False)]
 tb = Match "f" [PatLit (B True), PatLit (B True)]
+ttb = Match "f" [PatLit (B True), PatWild]
+ttf = Match "f" [PatLit (B True)]
 
 tt = Match "f" [PatWild]
 
