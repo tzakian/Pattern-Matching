@@ -1,4 +1,5 @@
 module Types where
+import qualified Data.Set as Set
 import qualified Data.Map as Map
 
 data PatToken = PTWild | PTConstr String
@@ -7,7 +8,7 @@ data PatToken = PTWild | PTConstr String
 data Pattern = Pat PatToken (Maybe Pattern)
   deriving (Show, Eq, Ord)
 
-type Env = Map.Map PatToken (Map.Map PatToken Int)
+type Env = Map.Map PatToken Int
 
 patwild :: Pattern
 patwild = Pat PTWild Nothing
@@ -57,7 +58,11 @@ convertPat (PatObj c (Just pats)) k =
 
 ---------------------------------------------------------------------------
 ---------------------------------------------------------------------------
+env1 :: Map.Map PatToken Int
+env1 = Map.fromList [(PTConstr "True", 0), (PTConstr "False", 0)]
 t = Match "f" [PatLit (B True), PatLit (B False)]
+tb = Match "f" [PatLit (B True), PatLit (B True)]
+
 tt = Match "f" [PatWild]
 
 e1 :: Map.Map String Int

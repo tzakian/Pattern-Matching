@@ -12,11 +12,6 @@ data Trie a = Trie { children :: Map.Map a (Trie a) }
 emptyTrie :: Trie PatToken
 emptyTrie = Trie { children = Map.empty }
 
--- TODO: This could probably be combined with useful so that we insert as
--- we go down. But for now we don't do that
-insert :: Pattern -> Trie PatToken -> Trie PatToken
-insert pat trie = undefined
-
 isEnd :: Trie PatToken -> Bool
 isEnd t = Map.null (children t)
 
@@ -28,7 +23,7 @@ expandPat env pt pat =
 arityOfPatToken :: Env -> PatToken -> Int
 arityOfPatToken env pat = case Map.lookup pat env of
   Nothing -> error $ "Unable to find constructor: " ++ show pat
-  Just kids -> Map.size kids
+  Just kids -> kids
 
 generateWildcards :: Int -> Pattern -> Pattern
 generateWildcards 0 continuation = continuation
@@ -42,58 +37,58 @@ isCompleteLevel env children =
     -- Now grab an example elem
     let (exampleElem, _) = Map.findMin nonWildcards
         -- Grab the constructors that we expect
-        sigma = Map.keysSet $ fromJust (Map.lookup exampleElem env)
+        sigmaSize = fromJust (Map.lookup exampleElem env)
         -- Grab the constructors that we _have_
-        constrs = Map.keysSet nonWildcards
-        -- Now take their difference
-        diff = Set.difference sigma constrs in
-    -- Their difference had better be zero
-    Set.size diff == 0
+        constrSize = Map.size nonWildcards in
+    sigmaSize == constrSize
 
 -- | Given a pattern @p, determine if that pattern is in the trie
-useful :: Env -> Pattern -> Trie PatToken -> Bool
-useful env (Pat p Nothing) t = isEnd t
+useful :: Env -> Pattern -> Trie PatToken -> (Trie PatToken, Bool)
+useful env (Pat p Nothing) t = (t, isEnd t)
 useful env (Pat p (Just rest)) (Trie children) =
   case p of
     PTConstr str ->
       case Map.lookup p children of
-        Nothing -> True
-        Just node -> useful env rest node
+        Nothing -> 
+          let (trie, _) = useful env rest emptyTrie in
+          (Trie (Map.insert p trie children), True)
+        Just node ->
+          let (trie, b) = useful env rest node in
+          (Trie (Map.insert p trie children), b)
     PTWild ->
-      if isCompleteLevel env children
-      then
-       -- for each pattern token in children generate wildcards of the proper
-       -- arity and then go down that constructors path
-        not $ Map.null $ (flip Map.filterWithKey) children $ \k node ->
-        -- Expand out the pattern so that it has the proper number of wildcards
-        -- to match the arity of the constructor of edge that we are traversing.
-         let rest' = expandPat env k rest in
-         useful env rest' node
-      else
-        let wildcard = Map.filterWithKey (\k _ -> k == PTWild) children in
-         case Map.size wildcard of
-           0 -> True
-           1 -> useful env rest (snd $ Map.findMin wildcard)
-           _ -> error "Core invariant broken: Trie structure violated"
+       if isCompleteLevel env children
+       then
+          -- for each pattern token in children generate wildcards of the proper
+          -- arity and then go down that constructors path
+          -- Expand out the pattern so that it has the proper number of wildcards
+          -- to match the arity of the constructor of edge that we are traversing.
+          let res = (flip Map.mapWithKey) children (\k node -> let rest' = expandPat env k rest in
+                          let (trie, b) = useful env rest' node in
+                          (Trie (Map.insert p trie children), b)) in
+          let res' = Map.filter snd res in
+          if not (Map.null res')
+          then let (_, (trie, b)) = (Map.findMin res') in
+               (Trie (Map.insert p trie children), b)
+          else (Trie children, False)
+       else
+         let wildcard = Map.filterWithKey (\k _ -> k == PTWild) children in
+          case Map.size wildcard of
+            0 -> 
+              let (trie, b) = useful env rest emptyTrie in
+              (Trie (Map.insert p trie children), True)
+            _ -> let (trie, b) = useful env rest (snd $ Map.findMin wildcard) in
+                 (Trie (Map.insert p trie children), b)
 
 exhaustive :: Env -> Match -> Bool
 exhaustive env (Match str ps) =
   let check trie pats = case pats of
         [] ->
-          if useful env patwild trie then False
-            {-let Just cex = generateCounterexample env mat 1 in-}
-            {-error ("Non-exhaustive pattern match found. The following is a counterexample:\n" ++ prettyShow (head cex))-}
+          let (_, b) = useful env patwild trie in
+          if b then False
           else True
         (p:ps) ->
           let pp = convertPat p Nothing in
-          if useful env pp trie then check (insert pp trie) ps
+          let (trie', b) = useful env pp trie in
+          if b then check trie' ps
           else error ("Dead pattern found " ++ show p)
   in check emptyTrie ps
-
--- -- | Given a pattern @p traverse in our pattern trie to the node that finishes
--- -- that patter in the trie.
--- traversePrefix :: Pattern -> Trie PatToken -> Trie PatToken
--- traversePrefix (Pat _ Nothing) t = t
--- traversePrefix (Pat p (Just pat)) t =
---   let Just t' = Map.lookup p (children t) in
---   traversePrefix pat t'
