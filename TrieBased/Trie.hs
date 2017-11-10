@@ -20,7 +20,8 @@ hasWildcard = Map.member PTWild
 
 insert :: Env -> Trie PatToken -> Pattern -> Trie PatToken
 -- We prune the trie here
-insert env (Trie t) (Pat PTWild Nothing) = Trie $ Map.singleton PTWild emptyTrie
+insert env (Trie t) (Pat PTWild Nothing) =
+  Trie $ Map.singleton PTWild emptyTrie
 insert env (Trie t) (Pat PTWild (Just rest))
   | Map.null t = Trie $ Map.singleton PTWild (insert env emptyTrie rest)
   | otherwise  = Trie $ (flip Map.mapWithKey) t $ \k node ->
@@ -28,17 +29,17 @@ insert env (Trie t) (Pat PTWild (Just rest))
       insert env node epat
 insert env (Trie t) (Pat p Nothing)
  | hasWildcard t || Map.member p t = Trie t
- | otherwise = Trie $ Map.insert p emptyTrie t
+ | otherwise                       = Trie $ Map.insert p emptyTrie t
 insert env (Trie t) (Pat p (Just rest)) =
   case Map.lookup p t of
     Just kids -> Trie $ Map.insert p (insert env kids rest) t
-    Nothing -> Trie $ Map.insert p (insert env emptyTrie rest) t
+    Nothing   -> Trie $ Map.insert p (insert env emptyTrie rest) t
 
 expandPat :: Env -> PatToken -> Maybe Pattern -> Pattern
 expandPat env pt pat =
   let len = arityOfPatToken env pt in
   case pat of
-    Nothing -> makeWildcards len
+    Nothing  -> makeWildcards len
     Just pat -> generateWildcards len pat
 
 arityOfPatToken :: Env -> PatToken -> Int
@@ -84,16 +85,12 @@ useful _ (Pat p Nothing) (Trie t) =
   case Map.lookup p t of
     Nothing -> not $ hasWildcard t -- Useful if we haven't seen it before, and if we don't have a wildcard
     Just l  -> not $ isEnd l -- Not useful unless this isn't the end. (??) <-- check!
-useful env (Pat p (Just rest)) (Trie children) =
-  case p of
-    PTConstr str ->
-      case Map.lookup p children of
-        Nothing ->
-          case Map.lookup PTWild children of
-            Just kids  -> useful env rest kids -- found a wild child, so recurse
-            Nothing -> True -- Didn't find a wild child, so we know at this point it's useful
-        Just node -> useful env rest node -- found a child, so recurse
-    PTWild ->
+useful env (Pat p@(PTConstr str) (Just rest)) (Trie children) =
+  case (Map.lookup p children, Map.lookup PTWild children) of
+       (Nothing, Just kids) -> useful env rest kids  -- found a wild child, so recurse
+       (Nothing, Nothing)   -> True -- Didn't find a wild child, so we know at this point it's useful
+       (Just node, _)       -> useful env rest node -- Found a non-wild child so recurse
+useful env (Pat PTWild (Just rest)) (Trie children) =
        if isCompleteLevel env children
        then
           -- for each pattern token in children generate wildcards of the proper
@@ -108,8 +105,7 @@ useful env (Pat p (Just rest)) (Trie children) =
          let wildcard = Map.filterWithKey (\k _ -> k == PTWild) children in
           case Map.size wildcard of
             0 -> True -- If we don't have a wildcard (and level isn't complete), then we're done
-            1 -> useful env rest $ snd $ Map.findMin wildcard -- recurse down the wild child
-            _ -> error "Trie invariant violated" -- Set invariant broken
+            _ -> useful env rest $ snd $ Map.findMin wildcard -- recurse down the wild child
 
 exhaustive :: Env -> Match -> Bool
 exhaustive env (Match str ps) =
