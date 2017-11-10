@@ -103,11 +103,3 @@ exhaustive env (Match str ps) =
           else trace (show trie') $
           error ("Dead pattern found " ++ show p)
   in check emptyTrie ps
-
-printTrie :: Trie PatToken -> IO ()
-printTrie (Trie t) =
-  let tt = Map.toList t in
-  mapM_ (\(p, n) -> do { putStrLn (show p); printTrie n}) tt
-
-
-

@@ -61,6 +61,7 @@ convertPat (PatObj c (Just pats)) k =
 env1 :: Map.Map PatToken Int
 env1 = Map.fromList [(PTConstr "True", 0), (PTConstr "False", 0)]
 env2 = Map.fromList [(PTConstr "True", env1), (PTConstr "False", env1)]
+
 t = Match "f" [PatLit (B True), PatLit (B False)]
 tb = Match "f" [PatLit (B True), PatLit (B True)]
 ttb = Match "f" [PatLit (B True), PatWild]
@@ -68,9 +69,11 @@ ttf = Match "f" [PatLit (B True)]
 
 tt = Match "f" [PatWild]
 
-e1 :: Map.Map String Int
-e1 = Map.fromList [("Nil", 0), ("Cons", 2)]
-e2 = Map.fromList [("Nil", e1), ("Cons", e1)]
+ps1 = [(PatObj (Constr "Nil") Nothing), (PatObj (Constr "Cons") (Just [PatLit (I 1), PatWild]))]
+
+e1 :: Map.Map PatToken Int
+e1 = Map.fromList [(PTConstr "Nil", 0), (PTConstr "Cons", 2)]
+e2 = Map.fromList [(PTConstr "Nil", e1), (PTConstr "Cons", e1)]
 t3 = Match "f" [(PatObj (Constr "Nil") Nothing)]
 t4 = Match "f" [(PatObj (Constr "Nil") Nothing), (PatObj (Constr "Cons") (Just [PatWild, PatWild]))]
 t5 = Match "f" [(PatObj (Constr "Nil") Nothing), (PatObj (Constr "Cons") (Just [PatLit (I 1), PatWild]))]
