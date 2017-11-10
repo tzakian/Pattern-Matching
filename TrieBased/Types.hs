@@ -46,11 +46,10 @@ convertConstr (Constr s) = PTConstr s
 convertPat :: Pat -> Maybe Pattern -> Pattern
 convertPat (PatLit l) k = Pat (convertLit l) k
 convertPat PatWild k = Pat PTWild k
-convertPat (PatTuple [p]) k = Pat (PTConstr "tuple") $ Just $ convertPat p k
+convertPat (PatTuple [p]) k = convertPat p k
 convertPat (PatTuple (p:ps)) k =
   let rest = Just $ convertPat (PatTuple ps) k in
-  let pk = convertPat p rest in
-  Pat (PTConstr "tuple") $ Just pk
+  convertPat p rest
 convertPat (PatObj c Nothing) k = Pat (convertConstr c) k
 convertPat (PatObj c (Just pats)) k =
   let rest = convertPat (PatTuple pats) k in
@@ -79,14 +78,17 @@ e1 :: Map.Map PatToken Int
 e1 = Map.fromList [(PTConstr "Nil", 0), (PTConstr "Cons", 2)]
 e2 = Map.fromList [(PTConstr "Nil", e1), (PTConstr "Cons", e1)]
 t3 = Match "f" [(PatObj (Constr "Nil") Nothing)]
-t4 = Match "f" [(PatObj (Constr "Nil") Nothing), (PatObj (Constr "Cons") (Just [PatWild, PatWild]))]
-t5 = Match "f" [(PatObj (Constr "Nil") Nothing), (PatObj (Constr "Cons") (Just [PatLit (I 1), PatWild]))]
+f3 = Match "f" [(PatObj (Constr "Nil") Nothing), (PatObj (Constr "Nil") Nothing)]
+t4 = Match "f" [(PatObj (Constr "Cons") (Just [PatWild, PatWild]))]
+f4 = Match "f" [(PatObj (Constr "Cons") (Just [PatWild, PatWild])), (PatObj (Constr "Cons") (Just [PatWild, PatWild]))]
+t5 = Match "f" [(PatObj (Constr "Nil") Nothing), (PatObj (Constr "Cons") (Just [PatWild, PatWild]))]
+t6 = Match "f" [(PatObj (Constr "Nil") Nothing), (PatObj (Constr "Cons") (Just [PatLit (I 1), PatWild]))]
 
 p5 = [(PatObj (Constr "Nil") Nothing), (PatObj (Constr "Cons") (Just [PatLit (I 1), PatWild])), PatWild]
 p5' = [(PatObj (Constr "Nil") Nothing), (PatObj (Constr "Cons") (Just [PatLit (I 1), PatWild]))]
 p6 = [(PatObj (Constr "Nil") Nothing), (PatObj (Constr "Cons") (Just p5'))]
 p6' = [(PatObj (Constr "Nil") Nothing), (PatObj (Constr "Cons") (Just p5')), PatWild]
-t6 = Match "f" p5
+-- t6 = Match "f" p5
 t7nonex = Match "f" p6
 t7ex = Match "f" p6'
 

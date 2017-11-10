@@ -21,10 +21,11 @@ hasWildcard = Map.member PTWild
 insert :: Env -> Trie PatToken -> Pattern -> Trie PatToken
 -- We prune the trie here
 insert env (Trie t) (Pat PTWild Nothing) = Trie $ Map.singleton PTWild emptyTrie
-insert env (Trie t) (Pat PTWild (Just rest)) = Trie $ (flip Map.mapWithKey) t $ \k node ->
+insert env (Trie t) (Pat PTWild (Just rest))
+  | Map.null t = Trie $ Map.singleton PTWild (insert env emptyTrie rest)
+  | otherwise  = Trie $ (flip Map.mapWithKey) t $ \k node ->
       let epat = expandPat env k (Just rest) in
       insert env node epat
--- We just insert
 insert env (Trie t) (Pat p Nothing)
  | hasWildcard t || Map.member p t = Trie t
  | otherwise = Trie $ Map.insert p emptyTrie t
@@ -115,6 +116,7 @@ exhaustive env (Match str ps) =
   let check trie pats = case pats of
         [] ->
           let b = useful env patwild trie in
+          trace ("B: " ++ show trie) $
           if b then False
           else True
         (p:ps) ->
