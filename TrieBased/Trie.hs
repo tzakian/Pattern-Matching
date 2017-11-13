@@ -12,28 +12,8 @@ newtype Trie a = Trie { children :: Map.Map a (Trie a) }
 emptyTrie :: Trie PatToken
 emptyTrie = Trie { children = Map.empty }
 
-isEnd :: Trie PatToken -> Bool
-isEnd t = Map.null (children t)
-
 hasWildcard :: Map.Map PatToken (Trie PatToken) -> Bool
 hasWildcard = Map.member PTWild
-
-insert :: Env -> Trie PatToken -> Pattern -> Trie PatToken
--- We prune the trie here
-insert env (Trie t) (Pat PTWild Nothing) =
-  Trie $ Map.singleton PTWild emptyTrie
-insert env (Trie t) (Pat PTWild (Just rest))
-  | Map.null t = Trie $ Map.singleton PTWild (insert env emptyTrie rest)
-  | otherwise  = Trie $ (flip Map.mapWithKey) t $ \k node ->
-      let epat = expandPat env k (Just rest) in
-      insert env node epat
-insert env (Trie t) (Pat p Nothing)
- | hasWildcard t || Map.member p t = Trie t
- | otherwise                       = Trie $ Map.insert p emptyTrie t
-insert env (Trie t) (Pat p (Just rest)) =
-  case Map.lookup p t of
-    Just kids -> Trie $ Map.insert p (insert env kids rest) t
-    Nothing   -> Trie $ Map.insert p (insert env emptyTrie rest) t
 
 expandPat :: Env -> PatToken -> Maybe Pattern -> Pattern
 expandPat env pt pat =
@@ -53,7 +33,7 @@ generateWildcards len continuation =
   Pat PTWild $ Just $ generateWildcards (len - 1) continuation
 
 makeWildcards :: Int -> Pattern
-makeWildcards 0 = error "foo"
+makeWildcards 0 = error "Tried to expand pattern of zero arity"
 makeWildcards 1 = patwild
 makeWildcards len =
   Pat PTWild $ Just $ makeWildcards (len - 1)
@@ -70,11 +50,28 @@ isCompleteLevel env children =
         constrSize = Map.size nonWildcards in
     sigmaSize == constrSize
 
+insert :: Env -> Trie PatToken -> Pattern -> Trie PatToken
+-- We prune the trie here
+insert env (Trie t) (Pat PTWild Nothing) =
+  Trie $ Map.singleton PTWild emptyTrie
+insert env (Trie t) (Pat PTWild (Just rest))
+  | Map.null t = Trie $ Map.singleton PTWild (insert env emptyTrie rest)
+  | otherwise  = Trie $ (flip Map.mapWithKey) t $ \k node ->
+      let epat = expandPat env k (Just rest) in
+      insert env node epat
+insert env (Trie t) (Pat p Nothing)
+ | hasWildcard t || Map.member p t = Trie t
+ | otherwise                       = Trie $ Map.insert p emptyTrie t
+insert env (Trie t) (Pat p (Just rest)) =
+  case Map.lookup p t of
+    Just kids -> Trie $ Map.insert p (insert env kids rest) t
+    Nothing   -> Trie $ Map.insert p (insert env emptyTrie rest) t
+
 -- | Given a pattern @p, determine if that pattern is in the trie
 useful :: Env -> Pattern -> Trie PatToken -> Bool
 useful env (Pat PTWild Nothing) (Trie t)
-  | Map.null t = True -- _ : emptyTrie
-  | hasWildcard t = False -- if we have a wild child. This plays in with truncation in insertion
+  | Map.null t            = True  -- _ : emptyTrie
+  | hasWildcard t         = False -- if we have a wild child. This plays in with truncation in insertion
   | isCompleteLevel env t = not $ Map.null $ (flip Map.filterWithKey) t $ \k node ->
       -- If we have a complete level keep on chugging. Useful, if it's useful for one of its children
       if arityOfPatToken env k == 0 then False else
@@ -84,7 +81,7 @@ useful env (Pat PTWild Nothing) (Trie t)
 useful _ (Pat p Nothing) (Trie t) =
   case Map.lookup p t of
     Nothing -> not $ hasWildcard t -- Useful if we haven't seen it before, and if we don't have a wildcard
-    Just l  -> not $ isEnd l -- Not useful unless this isn't the end. (??) <-- check!
+    Just l  -> not $ Map.null $ children l -- Not useful unless this isn't the end. (??) <-- check!
 useful env (Pat p@(PTConstr str) (Just rest)) (Trie children) =
   case (Map.lookup p children, Map.lookup PTWild children) of
        (Nothing, Just kids) -> useful env rest kids  -- found a wild child, so recurse
